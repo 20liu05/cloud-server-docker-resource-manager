@@ -1,0 +1,18 @@
+services:
+  docker-panel:
+    build: .
+    container_name: docker-panel
+    restart: unless-stopped
+    ports:
+      - "${PANEL_PORT:-9849}:8080"
+    environment:
+      PANEL_USER: "${PANEL_USER:-admin}"
+      PANEL_PASSWORD: "${PANEL_PASSWORD:?PANEL_PASSWORD is required}"
+      PORT: "8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc:/host/proc:ro
+      - /:/hostfs:ro
+      - ./data:/data
+    security_opt:
+      - no-new-privileges:true
