@@ -1,0 +1,8 @@
+.deploy/
+.env
+data/
+docker-panel
+node_modules/
+npm-debug.log
+server.js
+package.json
