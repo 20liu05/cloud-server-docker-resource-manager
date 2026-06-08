@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Docker Control Deck</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080b10;
+      --panel: #111821;
+      --panel-2: #151f2b;
+      --line: #263244;
+      --text: #eef4ff;
+      --muted: #91a0b8;
+      --green: #41d392;
+      --red: #ff6b7a;
+      --amber: #ffc857;
+      --blue: #65a8ff;
+      --violet: #a78bfa;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(101, 168, 255, .14), transparent 32rem),
+        linear-gradient(135deg, #080b10 0%, #0d131c 48%, #090d13 100%);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    .shell {
+      width: min(1440px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 40px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+    h1 {
+      font-size: 28px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      margin-top: 8px;
+      font-size: 14px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      background: rgba(17, 24, 33, .74);
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      color: var(--text);
+      background: linear-gradient(180deg, #1d2b3a, #111923);
+      border-radius: 8px;
+      padding: 9px 12px;
+      cursor: pointer;
+      transition: .16s ease;
+      white-space: nowrap;
+    }
+
+    button:hover {
+      border-color: #3d5069;
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    button.primary {
+      border-color: rgba(101, 168, 255, .55);
+      background: linear-gradient(180deg, #27609e, #17385f);
+    }
+
+    button.danger {
+      border-color: rgba(255, 107, 122, .45);
+      background: linear-gradient(180deg, #65232c, #38141b);
+    }
+
+    button.ghost {
+      background: #111821;
+    }
+
+    button.icon {
+      min-width: 42px;
+      padding: 9px 11px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .stat, .panel {
+      background: rgba(17, 24, 33, .86);
+      border: 1px solid rgba(54, 70, 92, .78);
+      border-radius: 8px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, .28);
+    }
+
+    .stat {
+      padding: 16px;
+      min-height: 118px;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .value {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+
+    .bar {
+      height: 8px;
+      border-radius: 999px;
+      background: #253142;
+      overflow: hidden;
+    }
+
+    .bar > span {
+      display: block;
+      height: 100%;
+      width: var(--value, 0%);
+      background: linear-gradient(90deg, var(--blue), var(--green));
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(340px, .8fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel {
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(21, 31, 43, .62);
+    }
+
+    .panel-head h2 {
+      font-size: 16px;
+    }
+
+    .head-tools {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .resource-tabs {
+      display: inline-grid;
+      grid-template-columns: repeat(2, minmax(92px, 1fr));
+      gap: 6px;
+      padding: 5px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(8, 11, 16, .55);
+    }
+
+    .resource-tabs button {
+      padding: 8px 10px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 6px;
+    }
+
+    .resource-tabs button.active {
+      color: var(--text);
+      background: linear-gradient(180deg, rgba(39, 96, 158, .72), rgba(21, 31, 43, .88));
+      box-shadow: inset 0 0 0 1px rgba(101, 168, 255, .25);
+    }
+
+    .search {
+      width: min(240px, 100%);
+      min-height: 38px;
+    }
+
+    .resource-view { display: none; }
+    .resource-view.active { display: block; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th, td {
+      padding: 13px 14px;
+      border-bottom: 1px solid rgba(38, 50, 68, .78);
+      text-align: left;
+      vertical-align: middle;
+      font-size: 13px;
+      word-break: break-word;
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      background: rgba(8, 11, 16, .32);
+    }
+
+    tr:last-child td { border-bottom: 0; }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #202b39;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .tag.running { color: #d8ffeb; background: rgba(65, 211, 146, .16); }
+    .tag.exited { color: #ffd9de; background: rgba(255, 107, 122, .16); }
+    .tag.protected { color: #dbeafe; background: rgba(101, 168, 255, .18); }
+
+    .stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .side-panel {
+      position: sticky;
+      top: 16px;
+      align-self: start;
+    }
+
+    .ops-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(8, 11, 16, .22);
+    }
+
+    .ops-tabs button {
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      padding: 9px 8px;
+    }
+
+    .ops-tabs button.active {
+      color: var(--text);
+      border-color: rgba(101, 168, 255, .5);
+      background: linear-gradient(180deg, rgba(39, 96, 158, .6), rgba(17, 24, 33, .85));
+    }
+
+    .ops-view { display: none; }
+    .ops-view.active { display: block; }
+
+    .list {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+    }
+
+    .list-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0b1118;
+      padding: 10px;
+    }
+
+    .mini {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    form {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    input, select {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0b1118;
+      color: var(--text);
+      padding: 9px 10px;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: rgba(101, 168, 255, .7);
+      box-shadow: 0 0 0 3px rgba(101, 168, 255, .12);
+    }
+
+    .notice {
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      background: rgba(21, 31, 43, .75);
+      border-radius: 8px;
+      color: var(--muted);
+      margin-bottom: 16px;
+      min-height: 44px;
+    }
+
+    .empty {
+      padding: 24px 16px;
+      color: var(--muted);
+    }
+
+    .empty strong {
+      display: block;
+      color: var(--text);
+      margin-bottom: 5px;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      background: rgba(2, 6, 12, .68);
+      backdrop-filter: blur(10px);
+      z-index: 20;
+    }
+
+    .modal.open { display: grid; }
+
+    .modal-card {
+      width: min(460px, 100%);
+      border: 1px solid rgba(74, 94, 124, .8);
+      border-radius: 8px;
+      background: #101822;
+      box-shadow: 0 28px 80px rgba(0, 0, 0, .48);
+      overflow: hidden;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      padding: 0 16px 16px;
+    }
+
+    @media (max-width: 1040px) {
+      .grid, .layout { grid-template-columns: 1fr 1fr; }
+      .layout { display: block; }
+      .stack { margin-top: 16px; }
+      .side-panel { position: static; }
+    }
+
+    @media (max-width: 720px) {
+      .shell { width: min(100% - 20px, 1440px); padding-top: 18px; }
+      header { align-items: flex-start; flex-direction: column; }
+      .grid { grid-template-columns: 1fr; }
+      .panel-head { align-items: flex-start; flex-direction: column; }
+      .head-tools { width: 100%; justify-content: stretch; }
+      .resource-tabs, .search { width: 100%; }
+      table { min-width: 760px; }
+      .table-wrap { overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>Docker Control Deck</h1>
+        <p class="subtitle">ECS 监听面板 / 容器控制台</p>
+      </div>
+      <div class="toolbar">
+        <span class="pill" id="lastUpdated">等待刷新</span>
+        <button class="ghost icon" id="settingsBtn" title="设置">设置</button>
+        <button class="primary" id="refreshBtn">刷新</button>
+      </div>
+    </header>
+
+    <div class="notice" id="notice">正在读取服务器状态...</div>
+
+    <section class="grid">
+      <article class="stat">
+        <div class="label">CPU</div>
+        <div class="value" id="cpuValue">--</div>
+        <div class="bar"><span id="cpuBar"></span></div>
+      </article>
+      <article class="stat">
+        <div class="label">内存</div>
+        <div class="value" id="memValue">--</div>
+        <div class="bar"><span id="memBar"></span></div>
+      </article>
+      <article class="stat">
+        <div class="label">存储</div>
+        <div class="value" id="diskValue">--</div>
+        <div class="bar"><span id="diskBar"></span></div>
+      </article>
+      <article class="stat">
+        <div class="label">Docker</div>
+        <div class="value" id="dockerValue">--</div>
+        <div class="label" id="dockerSub">--</div>
+      </article>
+    </section>
+
+    <section class="layout">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>资源管理</h2>
+            <p class="mini" id="resourceSummary">等待数据同步</p>
+          </div>
+          <div class="head-tools">
+            <input class="search" id="resourceSearch" placeholder="搜索容器或镜像">
+            <div class="resource-tabs">
+              <button class="active" type="button" data-resource-tab="containers">容器</button>
+              <button type="button" data-resource-tab="images">镜像</button>
+            </div>
+          </div>
+        </div>
+        <div class="resource-view active" data-resource-view="containers">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 18%">名称</th>
+                  <th style="width: 22%">镜像</th>
+                  <th style="width: 12%">状态</th>
+                  <th style="width: 18%">端口</th>
+                  <th style="width: 30%">操作</th>
+                </tr>
+              </thead>
+              <tbody id="containersBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="resource-view" data-resource-view="images">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 44%">标签</th>
+                  <th style="width: 18%">ID</th>
+                  <th style="width: 18%">大小</th>
+                  <th style="width: 20%">操作</th>
+                </tr>
+              </thead>
+              <tbody id="imagesBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel side-panel">
+        <div class="panel-head">
+          <h2>操作台</h2>
+          <span class="pill" id="protectedCount">0 个保护</span>
+        </div>
+        <div class="ops-tabs">
+          <button class="active" type="button" data-ops-tab="create">创建</button>
+          <button type="button" data-ops-tab="pull">拉取</button>
+          <button type="button" data-ops-tab="protect">保护</button>
+        </div>
+
+        <div class="ops-view active" data-ops-view="create">
+          <form id="createForm">
+            <div class="field">
+              <label>镜像</label>
+              <select name="image" id="imageSelect"></select>
+            </div>
+            <div class="field">
+              <label>容器名称</label>
+              <input name="name" placeholder="例如 nacos-panel">
+            </div>
+            <div class="field">
+              <label>启动命令</label>
+              <input name="command" placeholder="可留空">
+            </div>
+            <div class="field">
+              <label>端口映射</label>
+              <input name="ports" placeholder="宿主机:容器，例如 8081:80">
+            </div>
+            <div class="field">
+              <label>重启策略</label>
+              <select name="restart">
+                <option value="unless-stopped">unless-stopped</option>
+                <option value="always">always</option>
+                <option value="no">no</option>
+              </select>
+            </div>
+            <button class="primary" type="submit">创建容器</button>
+          </form>
+        </div>
+
+        <div class="ops-view" data-ops-view="pull">
+          <form id="pullForm">
+            <div class="field">
+              <label>镜像名称</label>
+              <input name="image" placeholder="例如 nginx:latest" required>
+            </div>
+            <button class="primary" type="submit">拉取镜像</button>
+          </form>
+        </div>
+
+        <div class="ops-view" data-ops-view="protect">
+          <form id="protectForm">
+            <div class="field">
+              <label>新增保护</label>
+              <select name="id" id="protectSelect"></select>
+            </div>
+            <button class="primary" type="submit">加入保护</button>
+          </form>
+          <div class="list" id="protectedList"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="modal" id="settingsModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="panel-head">
+        <h2 id="settingsTitle">账号密码</h2>
+        <button class="ghost icon" id="closeSettingsBtn" type="button" title="关闭">关闭</button>
+      </div>
+      <form id="accountForm">
+        <div class="field">
+          <label>用户名</label>
+          <input name="user" id="accountUser" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label>新密码</label>
+          <input name="password" type="password" autocomplete="new-password" placeholder="输入新密码" required>
+        </div>
+      </form>
+      <div class="modal-actions">
+        <button class="ghost" id="cancelSettingsBtn" type="button">取消</button>
+        <button class="primary" form="accountForm" type="submit">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
